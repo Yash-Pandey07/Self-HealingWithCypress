@@ -25,6 +25,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Reset healing results for this run
+        run: |
+          mkdir -p cypress/reports
+          echo '[]' > cypress/reports/healing-results.json
+
       - name: Run Self-Healing Tests
         continue-on-error: true
         env:
