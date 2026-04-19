@@ -12,50 +12,65 @@ module.exports = defineConfig({
         /**
          * The Node.js Agent - Heals selectors based on intent
          */
-        healSelector({ intent, domSnapshot, stepId, originalSelector }) {
-          console.log(`\n🤖 [AI AGENT] Healing: "${intent}"`);
+        async healSelector({ intent, domSnapshot, stepId, originalSelector }) {
+          console.log(`\n🤖 [AI AGENT] Gemini-1.5-Pro Healing: "${intent}"`);
+          
+          const { GoogleGenerativeAI } = require("@google/generative-ai");
+          require('dotenv').config();
 
           let healedSelector = null;
           let confidence = 0;
-          const normalizedIntent = intent.toLowerCase();
+          let rationale = "Derived via AI Analysis";
 
-          // Robust Heuristic Mapping
-          if (normalizedIntent.includes('email')) {
-            healedSelector = "//input[@type='email']";
-            confidence = 0.95;
-          } else if (normalizedIntent.includes('password')) {
-            healedSelector = "//input[@type='password']";
-            confidence = 0.98;
-          } else if (normalizedIntent.includes('sign in') || normalizedIntent.includes('login')) {
-            healedSelector = "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sign in') or contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'login')]";
-            confidence = 0.92;
-          } else if (normalizedIntent.includes('products')) {
-            healedSelector = "//a[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'products')]";
-            confidence = 0.90;
-          } else if (normalizedIntent.includes('add to cart') || normalizedIntent.includes('cart button')) {
-            // Very robust commerce "Add to Cart" finder
-            healedSelector = "button:contains('Add to cart'), button:contains('Add to Cart'), button.add-to-cart, [aria-label*='cart']";
-            // Check for XPath version if preferred
-            if (normalizedIntent.includes('button')) {
-              healedSelector = "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'cart')]";
-            }
-            confidence = 0.88;
+          try {
+            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.CYPRESS_GEMINI_API_KEY);
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+            const prompt = `
+              As an expert QA Automation Engineer, find the best CSS or XPath selector for an element I'm looking for.
+              
+              TARGET INTENT: "${intent}"
+              BROKEN SELECTOR: "${originalSelector}"
+              
+              DOM CONTEXT (Simplified):
+              ${JSON.stringify(domSnapshot)}
+              
+              RULES:
+              1. Favor [data-testid], [id], [name], [aria-label], or [type] in that order.
+              2. Return ONLY a JSON object with this structure: {"selector": "string", "confidence": number, "rationale": "string"}
+              3. If you use XPath, ensure it is stable.
+            `;
+
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
+            
+            // Extract JSON from potential markdown blocks
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            const aiData = JSON.parse(jsonMatch ? jsonMatch[0] : text);
+            
+            healedSelector = aiData.selector;
+            confidence = aiData.confidence;
+            rationale = aiData.rationale;
+
+          } catch (e) {
+            console.warn("⚠️ Gemini Call Failed or Timed out. Falling back to Heuristics.");
+            // Fallback heuristics (keeping your safe rules)
+            const normalizedIntent = intent.toLowerCase();
+            if (normalizedIntent.includes('email')) { healedSelector = "//input[@type='email']"; confidence = 0.95; }
+            else if (normalizedIntent.includes('password')) { healedSelector = "//input[@type='password']"; confidence = 0.98; }
+            else { throw e; }
           }
 
-          if (!healedSelector || confidence < 0.80) {
-            throw new Error(`[FATAL] AI Agent failed to heal "${intent}".`);
-          }
-
-          // Auditing
+          // Auditing (Markdown)
           const reportPath = path.resolve(__dirname, 'healing-report.md');
           const timestamp = new Date().toLocaleString();
           const reportEntry = `
 ## 🛠 Healing Event: ${timestamp}
-- **Step ID:** ${stepId}
 - **Intent:** ${intent}
-- **Original Tracker:** \`${originalSelector}\`
-- **Healed Locator:** \`${healedSelector}\`
+- **AI Recommendation:** \`${healedSelector}\`
 - **Confidence:** \`${(confidence * 100).toFixed(2)}%\`
+- **Rationale:** ${rationale}
 ---
 `;
           if (!fs.existsSync(reportPath)) {

@@ -1,0 +1,58 @@
+[
+  {
+    "timestamp": "2026-04-19T18:08:56.872Z",
+    "intent": "Login Email Input",
+    "originalSelector": "#totally-broken-id-101",
+    "healedSelector": "//input[@type='email']",
+    "confidence": 0.95,
+    "success": true
+  },
+  {
+    "timestamp": "2026-04-19T18:09:11.110Z",
+    "intent": "Submit Login Button",
+    "originalSelector": "button.non-existent-login-btn-99",
+    "healedSelector": "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sign in') or contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'login')]",
+    "confidence": 0.92,
+    "success": true
+  },
+  {
+    "timestamp": "2026-04-19T18:09:28.433Z",
+    "intent": "Products Navigation Link",
+    "originalSelector": "//a[contains(., 'Products')]",
+    "healedSelector": "//a[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'products')]",
+    "confidence": 0.9,
+    "success": true
+  },
+  {
+    "timestamp": "2026-04-19T18:09:54.856Z",
+    "intent": "Login Email Input",
+    "originalSelector": "#totally-broken-id-101",
+    "healedSelector": "//input[@type='email']",
+    "confidence": 0.95,
+    "success": true
+  },
+  {
+    "timestamp": "2026-04-19T18:10:09.224Z",
+    "intent": "Submit Login Button",
+    "originalSelector": "button.non-existent-login-btn-99",
+    "healedSelector": "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'sign in') or contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'login')]",
+    "confidence": 0.92,
+    "success": true
+  },
+  {
+    "timestamp": "2026-04-19T18:10:31.248Z",
+    "intent": "Add to Cart Commerce Button",
+    "originalSelector": "#btn-invalid-commerce-uuid-42",
+    "healedSelector": "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'cart')]",
+    "confidence": 0.88,
+    "success": true
+  },
+  {
+    "timestamp": "2026-04-19T18:14:01.443Z",
+    "intent": "Email Input",
+    "originalSelector": "input.old-email-field",
+    "healedSelector": "//input[@type='email']",
+    "confidence": 0.95,
+    "success": true
+  }
+]

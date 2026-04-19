@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agentic QA Resilience Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --primary: #3b82f6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text: #f8fafc;
+            --text-dim: #94a3b8;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 2rem;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3rem;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 1rem;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header .badge {
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--primary);
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .stat-card {
+            background: var(--card);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid #334155;
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--primary);
+        }
+
+        .stat-label {
+            color: var(--text-dim);
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .stat-trend {
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+
+        .trend-up { color: var(--success); }
+
+        .chart-container {
+            background: var(--card);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid #334155;
+            margin-bottom: 3rem;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--card);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #334155;
+        }
+
+        .history-table th {
+            text-align: left;
+            padding: 1rem;
+            background: #2d3748;
+            color: var(--text-dim);
+            font-size: 0.875rem;
+            text-transform: uppercase;
+        }
+
+        .history-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #334155;
+        }
+
+        .history-table tr:hover {
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .status-pill {
+            padding: 0.25rem 0.50rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-healed { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+        .status-failed { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><span>🤖</span> Agentic Self-Healing Dashboard <span class="badge">PROTOTYPE</span></h1>
+        <div id="last-updated" style="font-size: 0.875rem; color: var(--text-dim);"></div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Total Heals Executed</div>
+            <div id="total-heals" class="stat-value">0</div>
+            <div class="stat-trend trend-up">↑ Autonomous Recovery active</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Healing Success Rate</div>
+            <div id="success-rate" class="stat-value">0%</div>
+            <div class="stat-trend trend-up">Target: >95%</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Engineering Hours Saved</div>
+            <div id="hours-saved" class="stat-value">0</div>
+            <div class="stat-trend trend-up">Estimated manual effort avoided</div>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="healingChart" height="100"></canvas>
+    </div>
+
+    <h2>Historical Run Performance</h2>
+    <table class="history-table">
+        <thead>
+            <tr>
+                <th>Run #</th>
+                <th>Run Date</th>
+                <th>Heals</th>
+                <th>Success Rate</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="history-body">
+            <!-- Data will be injected here -->
+        </tbody>
+    </table>
+
+    <script>
+        async function loadDashboard() {
+            try {
+                // In production, this would be fetched from the dashboard-data branch RAW URL
+                // For now, we assume history.json is in the same directory (GitHub Pages deployment)
+                const response = await fetch('history.json');
+                const history = await response.json();
+
+                if (!history || history.length === 0) return;
+
+                const latest = history[0];
+                document.getElementById('total-heals').innerText = history.reduce((acc, run) => acc + parseInt(run.totalSelectorHeals), 0);
+                document.getElementById('success-rate').innerText = latest.healSuccessRate + '%';
+                document.getElementById('hours-saved').innerText = history.reduce((acc, run) => acc + parseFloat(run.estimatedTimeSaved), 0).toFixed(1) + 'h';
+                document.getElementById('last-updated').innerText = 'Last Sync: ' + new Date(latest.generatedAt).toLocaleString();
+
+                // Populate Table
+                const tbody = document.getElementById('history-body');
+                history.forEach(run => {
+                    const row = `<tr>
+                        <td>#${run.runNumber}</td>
+                        <td>${new Date(run.generatedAt).toLocaleDateString()}</td>
+                        <td>${run.totalSelectorHeals}</td>
+                        <td>${run.healSuccessRate}%</td>
+                        <td><span class="status-pill status-healed">ACTIVE</span></td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
+
+                // Render Chart
+                const ctx = document.getElementById('healingChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: history.map(r => 'Run ' + r.runNumber).reverse(),
+                        datasets: [{
+                            label: 'Healing Success Rate (%)',
+                            data: history.map(r => parseFloat(r.healSuccessRate)).reverse(),
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: { beginAtZero: false, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                        },
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    }
+                });
+
+            } catch (e) {
+                console.error("Failed to load history.json. Dashboard might be empty until first CI run.", e);
+            }
+        }
+
+        loadDashboard();
+    </script>
+</body>
+</html>
