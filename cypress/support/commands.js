@@ -172,3 +172,7 @@ Cypress.Commands.add('healClick', (selector, options = {}) => {
 Cypress.Commands.add('resetHealingLog', () => {
     cy.window({ log: false }).then(win => removeBanner(win));
 });
+
+Cypress.Commands.add('printHealingReport', () => {
+    cy.log('✅ Healing session complete');
+});

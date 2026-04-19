@@ -39,16 +39,24 @@ jobs:
           path: cypress/reports/healing-results.json
 
       - name: Ensure dashboard-data branch exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if ! git ls-remote --exit-code --heads origin dashboard-data; then
-            git switch --orphan dashboard-data
-            echo '[]' > history.json
-            echo '{}' > latest.json
-            mkdir -p runs
-            git add history.json latest.json
-            git commit -m "chore: initialize dashboard-data branch"
-            git push origin dashboard-data
-            git switch -
+            DEFAULT_SHA=$(git rev-parse HEAD)
+            gh api repos/${{ github.repository }}/git/refs \
+              -f ref="refs/heads/dashboard-data" \
+              -f sha="$DEFAULT_SHA" || true
+            gh api repos/${{ github.repository }}/contents/history.json \
+              -X PUT \
+              -f message="chore: initialize dashboard-data branch" \
+              -f content="$(echo '[]' | base64 -w0)" \
+              -f branch="dashboard-data" || true
+            gh api repos/${{ github.repository }}/contents/latest.json \
+              -X PUT \
+              -f message="chore: initialize dashboard-data branch" \
+              -f content="$(echo '{}' | base64 -w0)" \
+              -f branch="dashboard-data" || true
           fi
 
       - name: Checkout Dashboard Data Branch
