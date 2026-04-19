@@ -73,7 +73,14 @@ jobs:
       - name: Process Historical Data
         run: |
           cp cypress/reports/healing-results.json src/tools/ || true
-          cp data-branch/history.json src/tools/ || echo '[]' > src/tools/history.json
+          cp data-branch/history.json src/tools/ || true
+          # Strip BOM and ensure valid JSON fallback
+          node -e "
+            const fs = require('fs');
+            const f = 'src/tools/history.json';
+            try { const d = fs.readFileSync(f,'utf8').replace(/^\uFEFF/,''); JSON.parse(d); fs.writeFileSync(f,d); }
+            catch(e) { console.log('Resetting history.json to []'); fs.writeFileSync(f,'[]'); }
+          "
           node src/tools/generate-historical-data.js
           cp src/tools/history.json data-branch/
           cp src/tools/latest.json data-branch/

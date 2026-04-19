@@ -7,15 +7,25 @@ if (!fs.existsSync(LATEST_RESULTS)) {
     LATEST_RESULTS = path.join(__dirname, '../../cypress/reports/healing-results.json');
 }
 
+function readJsonSafe(filePath, fallback) {
+    try {
+        const raw = fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, ''); // strip BOM
+        return JSON.parse(raw);
+    } catch (e) {
+        console.warn(`⚠️  Could not parse ${path.basename(filePath)}: ${e.message}. Using fallback.`);
+        return fallback;
+    }
+}
+
 function generateHistoricalData() {
     let history = [];
     if (fs.existsSync(HISTORY_FILE)) {
-        history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+        history = readJsonSafe(HISTORY_FILE, []);
     }
 
     let latestResults = [];
     if (fs.existsSync(LATEST_RESULTS)) {
-        latestResults = JSON.parse(fs.readFileSync(LATEST_RESULTS, 'utf8'));
+        latestResults = readJsonSafe(LATEST_RESULTS, []);
     } else {
         console.log("No new results found. Creating empty entry for tracking.");
     }

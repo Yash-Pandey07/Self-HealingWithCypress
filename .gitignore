@@ -6,3 +6,4 @@ cypress/downloads/
 healing-report.md
 *_output.txt
 memory/snapshots/
+.claude/worktrees/
