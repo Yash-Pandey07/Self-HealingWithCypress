@@ -24,7 +24,7 @@ function generateHistoricalData() {
 
     const runId = process.env.GITHUB_RUN_ID || 'local-' + Date.now();
     const runNumber = process.env.GITHUB_RUN_NUMBER || '0';
-    
+
     const stats = {
         runId: runId,
         runNumber: runNumber,
@@ -35,13 +35,13 @@ function generateHistoricalData() {
         event: process.env.GITHUB_EVENT_NAME || "push",
         generatedAt: new Date().toISOString(),
         totalRuns: history.length + 1,
-        totalTestsCompleted: latestResults.length || 1, 
+        totalTestsCompleted: latestResults.length || 1,
         totalSelectorHeals: latestResults.filter(r => r.success).length,
         totalFlowHeals: 0,
         totalFailures: latestResults.filter(r => !r.success).length,
         estimatedTimeSaved: (latestResults.filter(r => r.success).length * 0.5).toFixed(1),
-        healSuccessRate: latestResults.length > 0 
-            ? ((latestResults.filter(r => r.success).length / latestResults.length) * 100).toFixed(1) 
+        healSuccessRate: latestResults.length > 0
+            ? ((latestResults.filter(r => r.success).length / latestResults.length) * 100).toFixed(1)
             : "100.0",
         file: `runs/${runId}.json`
     };
@@ -51,12 +51,16 @@ function generateHistoricalData() {
     if (!fs.existsSync(runDir)) fs.mkdirSync(runDir, { recursive: true });
     fs.writeFileSync(path.join(runDir, `${runId}.json`), JSON.stringify(latestResults, null, 2));
 
-    // Create latest.json (identical to the first entry of history)
-    fs.writeFileSync(path.join(__dirname, 'latest.json'), JSON.stringify(stats, null, 2));
+    // Create latest.json with full run payload (stats + all healing events)
+    const latestWithPayload = {
+        ...stats,
+        events: latestResults
+    };
+    fs.writeFileSync(path.join(__dirname, 'latest.json'), JSON.stringify(latestWithPayload, null, 2));
 
-    // Update history (keep top 50 runs)
+    // Update history (keep top 250 runs)
     history.unshift(stats);
-    if (history.length > 50) history = history.slice(0, 50);
+    if (history.length > 250) history = history.slice(0, 250);
 
     fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
     console.log(`✅ history.json and latest.json updated in exact reference format.`);

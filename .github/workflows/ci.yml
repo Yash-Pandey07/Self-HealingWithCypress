@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout main branch
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -24,11 +26,9 @@ jobs:
         run: npm ci
 
       - name: Run Self-Healing Tests
-        # We use a try-catch pattern so even if tests "fail" (business logic), we still get the healing report
         continue-on-error: true
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          # CYPRESS_env should match what your code expects
           CYPRESS_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: npm run cy:run
 
@@ -38,6 +38,19 @@ jobs:
           name: healing-results
           path: cypress/reports/healing-results.json
 
+      - name: Ensure dashboard-data branch exists
+        run: |
+          if ! git ls-remote --exit-code --heads origin dashboard-data; then
+            git switch --orphan dashboard-data
+            echo '[]' > history.json
+            echo '{}' > latest.json
+            mkdir -p runs
+            git add history.json latest.json
+            git commit -m "chore: initialize dashboard-data branch"
+            git push origin dashboard-data
+            git switch -
+          fi
+
       - name: Checkout Dashboard Data Branch
         uses: actions/checkout@v4
         with:
@@ -46,18 +59,11 @@ jobs:
 
       - name: Process Historical Data
         run: |
-          # Copy current results to tools working dir
           cp cypress/reports/healing-results.json src/tools/
-          # Copy existing history to tools working dir
-          cp data-branch/history.json src/tools/ || echo "[]" > src/tools/history.json
-          
-          # Run the aggregator script
+          cp data-branch/history.json src/tools/ || echo '[]' > src/tools/history.json
           node src/tools/generate-historical-data.js
-          
-          # Copy updated data back to data-branch
           cp src/tools/history.json data-branch/
           cp src/tools/latest.json data-branch/
-          # Ensure runs directory exists and copy run specific JSON
           mkdir -p data-branch/runs
           cp src/tools/runs/* data-branch/runs/ || true
 
@@ -72,7 +78,6 @@ jobs:
 
       - name: Prepare Dashboard Data
         run: |
-          # Copy the history and latest results into the dashboard folder so the HTML can reach it easily
           cp data-branch/history.json dashboard/
           cp data-branch/latest.json dashboard/
           mkdir -p dashboard/runs
