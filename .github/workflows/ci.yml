@@ -109,3 +109,34 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dashboard
           publish_branch: gh-pages
+
+      - name: Generate CI Summary
+        run: |
+          node -e "
+            const fs = require('fs');
+            let results = [];
+            try {
+              const raw = fs.readFileSync('cypress/reports/healing-results.json', 'utf8').replace(/^\uFEFF/, '');
+              results = JSON.parse(raw);
+            } catch (e) {}
+            const selectorHeals = results.filter(r => r.success).length;
+            const failures      = results.filter(r => !r.success).length;
+            const summary = {
+              totalRuns:      results.length,
+              selectorHeals,
+              flowHeals:      0,
+              failures,
+              timeSavedHours: parseFloat((selectorHeals * 0.5).toFixed(2)),
+              healRate:       results.length > 0
+                ? parseFloat(((selectorHeals / results.length) * 100).toFixed(2))
+                : 0.0
+            };
+            fs.writeFileSync('ci-summary.json', JSON.stringify(summary, null, 2));
+            console.log('CI Summary:', JSON.stringify(summary));
+          "
+
+      - name: Upload CI Summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-summary
+          path: ci-summary.json
