@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/checkout@v4
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
 
@@ -70,20 +70,15 @@ jobs:
           git commit -m "chore: update history for run ${{ github.run_id }}" || echo "No changes to commit"
           git push origin dashboard-data
 
-      - name: Deploy Dashboard to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dashboard
-          # We copy the history.json into the dashboard folder so the HTML can reach it easily
-          # In this setup, we might need a step to move history.json into dashboard/ before deploying
-          
-      - name: Finalize Dashboard Deployment
+      - name: Prepare Dashboard Data
         run: |
-          # Prepare the dashboard folder for deployment with the latest data
+          # Copy the history and latest results into the dashboard folder so the HTML can reach it easily
           cp data-branch/history.json dashboard/
-          
-      - name: Push to GH-Pages
+          cp data-branch/latest.json dashboard/
+          mkdir -p dashboard/runs
+          cp data-branch/runs/* dashboard/runs/ || true
+
+      - name: Deploy Dashboard to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

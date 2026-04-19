@@ -1,9 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const HISTORY_FILE = 'history.json';
-const LATEST_RESULTS = 'cypress/reports/healing-results.json';
-const packageJson = require('../../package.json');
+const HISTORY_FILE = path.join(__dirname, 'history.json');
+let LATEST_RESULTS = path.join(__dirname, 'healing-results.json');
+// If not found in src/tools (CI path), look in the default cypress reports path (local path)
+if (!fs.existsSync(LATEST_RESULTS)) {
+    LATEST_RESULTS = path.join(__dirname, '../../cypress/reports/healing-results.json');
+}
+const packageJson = require(path.join(__dirname, '../../package.json'));
 
 function generateHistoricalData() {
     let history = [];
@@ -43,12 +47,12 @@ function generateHistoricalData() {
     };
 
     // Save individual run data
-    const runDir = 'runs';
-    if (!fs.existsSync(runDir)) fs.mkdirSync(runDir);
+    const runDir = path.join(__dirname, 'runs');
+    if (!fs.existsSync(runDir)) fs.mkdirSync(runDir, { recursive: true });
     fs.writeFileSync(path.join(runDir, `${runId}.json`), JSON.stringify(latestResults, null, 2));
 
     // Create latest.json (identical to the first entry of history)
-    fs.writeFileSync('latest.json', JSON.stringify(stats, null, 2));
+    fs.writeFileSync(path.join(__dirname, 'latest.json'), JSON.stringify(stats, null, 2));
 
     // Update history (keep top 50 runs)
     history.unshift(stats);
