@@ -3,11 +3,9 @@ const path = require('path');
 
 const HISTORY_FILE = path.join(__dirname, 'history.json');
 let LATEST_RESULTS = path.join(__dirname, 'healing-results.json');
-// If not found in src/tools (CI path), look in the default cypress reports path (local path)
 if (!fs.existsSync(LATEST_RESULTS)) {
     LATEST_RESULTS = path.join(__dirname, '../../cypress/reports/healing-results.json');
 }
-const packageJson = require(path.join(__dirname, '../../package.json'));
 
 function generateHistoricalData() {
     let history = [];
@@ -22,47 +20,123 @@ function generateHistoricalData() {
         console.log("No new results found. Creating empty entry for tracking.");
     }
 
-    const runId = process.env.GITHUB_RUN_ID || 'local-' + Date.now();
-    const runNumber = process.env.GITHUB_RUN_NUMBER || '0';
+    const runId        = process.env.GITHUB_RUN_ID       || 'local-' + Date.now();
+    const runNumber    = process.env.GITHUB_RUN_NUMBER   || '0';
+    const repository   = process.env.GITHUB_REPOSITORY  || "Yadavkumari/Self-HealingWithCypress";
+    const branch       = process.env.GITHUB_REF_NAME    || "main";
+    const sha          = process.env.GITHUB_SHA          || "unknown";
+    const event        = process.env.GITHUB_EVENT_NAME  || "push";
+    const workflowName = process.env.GITHUB_WORKFLOW    || "CI Self-Healing Test Suite";
+    const generatedAt  = new Date().toISOString();
 
-    const stats = {
-        runId: runId,
-        runNumber: runNumber,
-        workflowName: process.env.GITHUB_WORKFLOW || "CI Self-Healing Test Suite",
-        repository: process.env.GITHUB_REPOSITORY || "Yadavkumari/Self-HealingWithCypress",
-        branch: process.env.GITHUB_REF_NAME || "main",
-        commitSha: process.env.GITHUB_SHA || "unknown",
-        event: process.env.GITHUB_EVENT_NAME || "push",
-        generatedAt: new Date().toISOString(),
+    const successHeals = latestResults.filter(r => r.success).length;
+    const failedHeals  = latestResults.filter(r => !r.success).length;
+    const totalTests   = latestResults.length || 1;
+    const healRate     = latestResults.length > 0
+        ? ((successHeals / latestResults.length) * 100).toFixed(1)
+        : "100.0";
+    const timeSaved    = (successHeals * 0.5).toFixed(1);
+
+    // Flat summary entry — matches the QAi history.json array schema exactly
+    const historySummary = {
+        runId,
+        runNumber,
+        workflowName,
+        repository,
+        branch,
+        commitSha: sha,
+        event,
+        generatedAt,
         totalRuns: history.length + 1,
-        totalTestsCompleted: latestResults.length || 1,
-        totalSelectorHeals: latestResults.filter(r => r.success).length,
+        totalTestsCompleted: totalTests,
+        totalSelectorHeals: successHeals,
         totalFlowHeals: 0,
-        totalFailures: latestResults.filter(r => !r.success).length,
-        estimatedTimeSaved: (latestResults.filter(r => r.success).length * 0.5).toFixed(1),
-        healSuccessRate: latestResults.length > 0
-            ? ((latestResults.filter(r => r.success).length / latestResults.length) * 100).toFixed(1)
-            : "100.0",
+        totalFailures: failedHeals,
+        estimatedTimeSaved: timeSaved,
+        healSuccessRate: healRate,
         file: `runs/${runId}.json`
     };
 
-    // Save individual run data
+    // Map raw healing events → QAi event schema
+    const mappedEvents = latestResults.map((r, i) => ({
+        type: r.success ? "selector_recovery_applied" : "selector_recovery_failed",
+        testId: r.intent || `step-${i}`,
+        stepId: null,
+        payload: {
+            originalSelector: r.originalSelector,
+            healedSelector: r.healedSelector || null,
+            confidence: r.confidence,
+            intent: r.intent,
+            success: r.success
+        },
+        timestamp: r.timestamp
+    }));
+
+    // Rich nested payload — matches the QAi latest.json schema exactly
+    const latestPayload = {
+        generatedAt,
+        mode: "ci",
+        workflow: {
+            name: workflowName,
+            runNumber,
+            runId,
+            event,
+            repository,
+            branch,
+            sha,
+            serverUrl: "https://github.com"
+        },
+        stats: {
+            totalRuns: history.length + 1,
+            totalSelectorHeals: successHeals,
+            totalFlowHeals: 0,
+            totalFailures: failedHeals,
+            totalTestsCompleted: totalTests,
+            estimatedTimeSaved: timeSaved,
+            healSuccessRate: healRate,
+            gitBranch: branch
+        },
+        commits: [],
+        status: {
+            branch,
+            changedFiles: [],
+            diffStats: { added: 0, deleted: 0, files: 0 }
+        },
+        contributors: [],
+        runs: [{
+            runId,
+            runStartedAt:  latestResults[0]?.timestamp || generatedAt,
+            runFinishedAt: latestResults[latestResults.length - 1]?.timestamp || generatedAt,
+            totalEvents: latestResults.length,
+            selectorHeals: successHeals,
+            flowHeals: 0,
+            failures: failedHeals,
+            healRejections: 0,
+            testsCompleted: totalTests,
+            testId: runId,
+            totalSteps: latestResults.length,
+            totalSelectorRecoveries: successHeals,
+            totalFlowRecoveries: 0,
+            urlsVisited: [],
+            events: mappedEvents,
+            durationMs: latestResults.length > 1
+                ? new Date(latestResults[latestResults.length - 1].timestamp) - new Date(latestResults[0].timestamp)
+                : 0
+        }],
+        memory: {}
+    };
+
+    // Save per-run raw data
     const runDir = path.join(__dirname, 'runs');
     if (!fs.existsSync(runDir)) fs.mkdirSync(runDir, { recursive: true });
     fs.writeFileSync(path.join(runDir, `${runId}.json`), JSON.stringify(latestResults, null, 2));
 
-    // Create latest.json with full run payload (stats + all healing events)
-    const latestWithPayload = {
-        ...stats,
-        events: latestResults
-    };
-    fs.writeFileSync(path.join(__dirname, 'latest.json'), JSON.stringify(latestWithPayload, null, 2));
+    fs.writeFileSync(path.join(__dirname, 'latest.json'), JSON.stringify(latestPayload, null, 2));
 
-    // Update history (keep top 250 runs)
-    history.unshift(stats);
+    history.unshift(historySummary);
     if (history.length > 250) history = history.slice(0, 250);
-
     fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
+
     console.log(`✅ history.json and latest.json updated in exact reference format.`);
 }
 
